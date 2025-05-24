@@ -41,7 +41,7 @@ class Transaction(models.Model):
 
 class PharmacyOpeningHour(models.Model):
     pharmacy = models.ForeignKey(Pharmacy, on_delete=models.CASCADE, related_name='opening_hours')
-    day_of_week = models.CharField(max_length=3)  # Mon, Tue, etc.
+    day_of_week = models.CharField(max_length=4)  # Mon, Tue, etc.
     open_time = models.TimeField()
     close_time = models.TimeField()
 
