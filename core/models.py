@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 
 class User(models.Model):
     name = models.CharField(max_length=255)
@@ -30,7 +31,8 @@ class Mask(models.Model):
 class Transaction(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='transactions')
     pharmacy = models.ForeignKey(Pharmacy, on_delete=models.CASCADE, related_name='transactions')
-    transaction_date = models.DateTimeField()
+    mask = models.ForeignKey(Mask, on_delete=models.CASCADE, related_name='transactions')
+    transaction_date = models.DateTimeField(default=timezone.now)
     transaction_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
     def __str__(self):
