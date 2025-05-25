@@ -62,6 +62,12 @@ class PharmacyMaskListView(ListAPIView):
 # Create a view to list pharmacies with more or fewer than X mask products
 # within a specific price range.
 # - URL: /api/pharmacies/mask-filter/?min_price=10&max_price=30&count_gt=5
+# class PharmaciesMaskCountFilterView(ListAPIView):
+#     serializer_class = PharmacySerializer
+
+#     def get_queryset(self):
+#         queryset = Pharmacy.objects
+
 
 # ---Mask Views ---
 class MaskListView(ListAPIView):
