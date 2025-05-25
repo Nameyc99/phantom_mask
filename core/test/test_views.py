@@ -42,8 +42,7 @@ class PharmacyOpenAtTimeViewTests(APITestCase):
     def test_invalid_time_format(self):
         url = reverse('pharmacies-open')
         response = self.client.get(url, {'day': 'Tue', 'time': 'invalid'})
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_missing_params_returns_all(self):
         url = reverse('pharmacies-open')
@@ -81,3 +80,75 @@ class PharmacyMaskListViewTests(APITestCase):
         url = reverse('pharmacy-masks', kwargs={'pharmacy_id': self.pharmacy.id})
         response = self.client.get(url, {'sort_by': 'unknown'})
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+class PharmaciesMaskCountFilterViewTests(APITestCase):
+    def setUp(self):
+        self.pharmacy1 = Pharmacy.objects.create(name="Pharma A", cash_balance=500)
+        self.pharmacy2 = Pharmacy.objects.create(name="Pharma B", cash_balance=700)
+        self.pharmacy3 = Pharmacy.objects.create(name="Pharma C", cash_balance=900)
+
+        # Pharma A: 3 masks at $10
+        for _ in range(3):
+            Mask.objects.create(pharmacy=self.pharmacy1, name="Basic Mask", price=10.00)
+
+        # Pharma B: 5 masks at $25
+        for _ in range(5):
+            Mask.objects.create(pharmacy=self.pharmacy2, name="Premium Mask", price=25.00)
+
+        # Pharma C: 2 masks at $5
+        for _ in range(2):
+            Mask.objects.create(pharmacy=self.pharmacy3, name="Cheap Mask", price=5.00)
+
+    def test_pharmacies_with_mask_count_greater_than_3_in_price_range(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '10', 'max_price': '30', 'compare': 'gt', 'count': '3'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [p['id'] for p in response.data]
+        self.assertIn(self.pharmacy2.id, ids)
+        self.assertNotIn(self.pharmacy1.id, ids)
+        self.assertNotIn(self.pharmacy3.id, ids)
+
+    def test_pharmacies_with_mask_count_lte_3_in_price_range(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '5', 'max_price': '25', 'compare': 'lte', 'count': '3'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [p['id'] for p in response.data]
+        self.assertIn(self.pharmacy1.id, ids)
+        self.assertIn(self.pharmacy3.id, ids)
+        self.assertNotIn(self.pharmacy2.id, ids)
+
+    def test_no_compare_returns_all_pharmacies(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '0', 'max_price': '100'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [p['id'] for p in response.data]
+        self.assertIn(self.pharmacy1.id, ids)
+        self.assertIn(self.pharmacy2.id, ids)
+        self.assertIn(self.pharmacy3.id, ids)
+
+    def test_invalid_min_price(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': 'invalid', 'max_price': '30', 'compare': 'gt', 'count': '3'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_max_price(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '10', 'max_price': 'oops', 'compare': 'gte', 'count': '2'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_count(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '5', 'max_price': '30', 'compare': 'lt', 'count': 'x'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_invalid_compare_operator(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url, {'min_price': '5', 'max_price': '30', 'compare': 'not_valid', 'count': '2'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_default_values_used_when_missing(self):
+        url = reverse('pharmacies-mask-count-filter')
+        response = self.client.get(url)  # No parameters at all
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [p['id'] for p in response.data]
+        self.assertEqual(set(ids), {self.pharmacy1.id, self.pharmacy2.id, self.pharmacy3.id})

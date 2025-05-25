@@ -1,5 +1,6 @@
 from rest_framework.generics import ListAPIView
 from django.utils.dateparse import parse_time
+from django.db.models import Count
 from rest_framework.exceptions import ValidationError
 from .models import User, Pharmacy, PharmacyOpeningHour, Mask, Transaction
 from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHourSerializer, MaskSerializer, TransactionSerializer
@@ -17,56 +18,100 @@ class PharmacyListView(ListAPIView):
 class PharmacyOpeningHourListView(ListAPIView):
     queryset = PharmacyOpeningHour.objects.all()
     serializer_class = PharmacyOpeningHourSerializer
-
 class PharmacyOpenAtTimeView(ListAPIView):
     serializer_class = PharmacySerializer
 
     def get_queryset(self):
-        queryset = Pharmacy.objects.all()
         day = self.request.query_params.get('day')
         time_str = self.request.query_params.get('time')
 
         if day and time_str:
             query_time = parse_time(time_str)
             if not query_time:
-                return Pharmacy.objects.none()  # invalid time format
+                raise ValidationError("Invalid time format. Expected HH:MM")
 
-            # Get pharmacy IDs open at the specified time
-            open_pharmacies = PharmacyOpeningHour.objects.filter(
+            open_ids = PharmacyOpeningHour.objects.filter(
                 day_of_week=day,
                 open_time__lte=query_time,
                 close_time__gte=query_time
             ).values_list('pharmacy_id', flat=True)
 
-            queryset = queryset.filter(id__in=open_pharmacies)
+            return Pharmacy.objects.filter(id__in=open_ids)
 
-        return queryset
+        return Pharmacy.objects.all()
+
 
 class PharmacyMaskListView(ListAPIView):
     serializer_class = MaskSerializer
-    
-    def get_queryset(self):
-        queryset = Mask.objects.filter(pharmacy = self.kwargs['pharmacy_id'])
-        sort_by = self.request.query_params.get('sort_by')
 
+    def get_queryset(self):
+        pharmacy_id = self.kwargs['pharmacy_id']
+        sort_by = self.request.query_params.get('sort_by')
         allowed_sort_fields = ['name', '-name', 'price', '-price']
 
+        if sort_by and sort_by not in allowed_sort_fields:
+            raise ValidationError(f"Invalid sort field: {sort_by}")
+
+        queryset = Mask.objects.filter(pharmacy=pharmacy_id)
         if sort_by:
-            if sort_by not in allowed_sort_fields:
-                raise ValidationError(f"Invalid sort field: {sort_by}")
             queryset = queryset.order_by(sort_by)
 
         return queryset
-    
-# TODO: Task 3
-# Create a view to list pharmacies with more or fewer than X mask products
-# within a specific price range.
-# - URL: /api/pharmacies/mask-filter/?min_price=10&max_price=30&count_gt=5
-# class PharmaciesMaskCountFilterView(ListAPIView):
-#     serializer_class = PharmacySerializer
 
-#     def get_queryset(self):
-#         queryset = Pharmacy.objects
+
+class PharmaciesMaskCountFilterView(ListAPIView):
+    serializer_class = PharmacySerializer
+
+    def get_queryset(self):
+        params = self.request.query_params
+
+        try:
+            min_price = float(params.get('min_price', 0))
+        except ValueError:
+            raise ValidationError("min_price must be a valid number.")
+
+        max_price_param = params.get('max_price')
+        if max_price_param is not None:
+            try:
+                max_price = float(max_price_param)
+            except ValueError:
+                raise ValidationError("max_price must be a valid number.")
+        else:
+            max_price = float('inf')
+
+        try:
+            count = int(params.get('count', 0))
+        except ValueError:
+            raise ValidationError("count must be a valid integer.")
+
+        compare = params.get('compare')
+        allowed_comparisons = {
+            'gt': 'mask_count__gt',
+            'lt': 'mask_count__lt',
+            'gte': 'mask_count__gte',
+            'lte': 'mask_count__lte'
+        }
+
+        if compare and compare not in allowed_comparisons:
+            raise ValidationError(f"Invalid compare value: '{compare}'. Must be one of {list(allowed_comparisons.keys())}.")
+
+        price_filter = {'price__gte': min_price}
+        if max_price != float('inf'):
+            price_filter['price__lte'] = max_price
+
+        mask_counts = (
+            Mask.objects
+            .filter(**price_filter)
+            .values('pharmacy_id')
+            .annotate(mask_count=Count('id'))
+        )
+
+        if compare:
+            condition = {allowed_comparisons[compare]: count}
+            matching_ids = mask_counts.filter(**condition).values_list('pharmacy_id', flat=True)
+            return Pharmacy.objects.filter(id__in=matching_ids)
+
+        return Pharmacy.objects.all()
 
 
 # ---Mask Views ---
