@@ -1,8 +1,9 @@
 from django.urls import path
-from .views import UserListView, PharmacyListView, PharmacyOpenAtTimeView, PharmacyMaskListView, PharmaciesMaskCountFilterView, PharmacyOpeningHourListView, MaskListView, TransactionListView
+from .views import UserListView, TopUsersByTransactionAmountView, PharmacyListView, PharmacyOpenAtTimeView, PharmacyMaskListView, PharmaciesMaskCountFilterView, PharmacyOpeningHourListView, MaskListView, TransactionListView
 
 urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
+    path('users/top/', TopUsersByTransactionAmountView.as_view(), name='top-users-by-transaction'),
     path('pharmacies/', PharmacyListView.as_view(), name='pharmacy-list'),
     path('pharmacies/open/', PharmacyOpenAtTimeView.as_view(), name='pharmacies-open'),
     path('pharmacies/<int:pharmacy_id>/masks/', PharmacyMaskListView.as_view(), name='pharmacy-masks'),

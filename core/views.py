@@ -1,6 +1,8 @@
 from rest_framework.generics import ListAPIView
 from django.utils.dateparse import parse_time
-from django.db.models import Count
+from django.utils import timezone
+from datetime import datetime
+from django.db.models import Count, Sum, Q
 from rest_framework.exceptions import ValidationError
 from .models import User, Pharmacy, PharmacyOpeningHour, Mask, Transaction
 from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHourSerializer, MaskSerializer, TransactionSerializer
@@ -9,6 +11,46 @@ from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHour
 class UserListView(ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+
+# TODO: Task 4
+# Create a view to retrieve the top X users by total transaction amount
+# within a date range.
+# - URL: /api/users/top/?start_date=2024-01-01&end_date=2024-12-31&limit=10
+class TopUsersByTransactionAmountView(ListAPIView):
+    serializer_class = UserSerializer
+
+    def get_queryset(self):
+        params = self.request.query_params
+        
+        # Parse and validate date inputs
+        try:
+            start_date = timezone.make_aware(datetime.strptime(params.get('start_date'), '%Y-%m-%d'))
+        except (TypeError, ValueError):
+            raise ValidationError("start_date must be provided in YYYY-MM-DD format.")
+
+        try:
+            end_date = timezone.make_aware(datetime.strptime(params.get('end_date'), '%Y-%m-%d'))
+        except (TypeError, ValueError):
+            raise ValidationError("end_date must be provided in YYYY-MM-DD format.")
+
+        try:
+            limit = int(params.get('limit', 10))
+        except ValueError:
+            raise ValidationError("limit must be an integer.")
+        
+        queryset = (
+            User.objects.annotate(
+                total_amount=Sum(
+                    'transactions__transaction_amount',
+                    filter=Q(transactions__transaction_date__range=(start_date, end_date))
+                )
+            )
+            .filter(total_amount__isnull=False)
+            .order_by('-total_amount')[:limit]
+        )
+
+        return queryset
+
 
 # ---Pharmacy Views ---
 class PharmacyListView(ListAPIView):
@@ -129,10 +171,7 @@ class TransactionListView(ListAPIView):
 
 
 
-# TODO: Task 4
-# Create a view to retrieve the top X users by total transaction amount
-# within a date range.
-# - URL: /api/users/top/?start_date=2024-01-01&end_date=2024-12-31&limit=10
+
 
 # TODO: Task 5
 # Create a view to calculate the total number of masks sold

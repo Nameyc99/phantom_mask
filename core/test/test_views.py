@@ -1,8 +1,9 @@
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
-from datetime import time
-from core.models import Pharmacy, PharmacyOpeningHour, Mask
+from django.utils import timezone
+from datetime import datetime, time, timedelta
+from core.models import User, Transaction, Pharmacy, PharmacyOpeningHour, Mask
 
 class PharmacyOpenAtTimeViewTests(APITestCase):
     def setUp(self):
@@ -152,3 +153,101 @@ class PharmaciesMaskCountFilterViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = [p['id'] for p in response.data]
         self.assertEqual(set(ids), {self.pharmacy1.id, self.pharmacy2.id, self.pharmacy3.id})
+
+class TopUsersByTransactionAmountViewTests(APITestCase):
+    def setUp(self):
+        self.user1 = User.objects.create(name="User One", cash_balance=1000)
+        self.user2 = User.objects.create(name="User Two", cash_balance=1000)
+        self.user3 = User.objects.create(name="User Three", cash_balance=1000)
+
+        self.pharmacy = Pharmacy.objects.create(name="Pharmacy", cash_balance=5000)
+        self.mask = Mask.objects.create(pharmacy=self.pharmacy, name="N95", price=50.0)
+
+        # Transaction dates (aware datetimes)
+        today_naive = datetime.today()
+        today = timezone.make_aware(today_naive)
+
+        self.start_date = today - timedelta(days=30)
+        self.end_date = today + timedelta(days=1)
+
+        # Create transactions with aware datetime
+        Transaction.objects.create(
+            user=self.user1, pharmacy=self.pharmacy, mask=self.mask,
+            transaction_amount=200, transaction_date=timezone.make_aware(today_naive - timedelta(days=10))
+        )
+        Transaction.objects.create(
+            user=self.user1, pharmacy=self.pharmacy, mask=self.mask,
+            transaction_amount=300, transaction_date=timezone.make_aware(today_naive - timedelta(days=5))
+        )
+        Transaction.objects.create(
+            user=self.user2, pharmacy=self.pharmacy, mask=self.mask,
+            transaction_amount=600, transaction_date=timezone.make_aware(today_naive - timedelta(days=3))
+        )
+        Transaction.objects.create(
+            user=self.user3, pharmacy=self.pharmacy, mask=self.mask,
+            transaction_amount=100, transaction_date=timezone.make_aware(today_naive - timedelta(days=40))  # Outside range
+        )
+
+    def test_top_users_by_transaction_amount_within_range(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': self.start_date.strftime('%Y-%m-%d'),
+            'end_date': self.end_date.strftime('%Y-%m-%d'),
+            'limit': 2
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        result_ids = [user['id'] for user in response.data]
+        self.assertEqual(len(result_ids), 2)
+        self.assertEqual(result_ids[0], self.user2.id)  # 600
+        self.assertEqual(result_ids[1], self.user1.id)  # 500
+
+    def test_excludes_transactions_out_of_range(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': self.start_date.strftime('%Y-%m-%d'),
+            'end_date': self.end_date.strftime('%Y-%m-%d'),
+            'limit': 10
+        })
+        ids = [user['id'] for user in response.data]
+        self.assertNotIn(self.user3.id, ids)
+
+    def test_invalid_start_date_format(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': 'bad-date',
+            'end_date': self.end_date.strftime('%Y-%m-%d'),
+            'limit': 10
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("start_date", str(response.data).lower())
+
+    def test_invalid_end_date_format(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': self.start_date.strftime('%Y-%m-%d'),
+            'end_date': 'bad-end',
+            'limit': 10
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("end_date", str(response.data).lower())
+
+    def test_no_transactions_in_range(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': '2000-01-01',
+            'end_date': '2000-01-10',
+            'limit': 5
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data, [])
+
+    def test_limit_applied_correctly(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': self.start_date.strftime('%Y-%m-%d'),
+            'end_date': self.end_date.strftime('%Y-%m-%d'),
+            'limit': 1
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['id'], self.user2.id)
