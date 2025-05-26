@@ -1,6 +1,7 @@
 from django.urls import reverse
 from rest_framework.test import APITestCase
 from rest_framework import status
+from decimal import Decimal
 from django.utils import timezone
 from datetime import datetime, time, timedelta
 from core.models import User, Transaction, Pharmacy, PharmacyOpeningHour, Mask
@@ -251,3 +252,81 @@ class TopUsersByTransactionAmountViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
         self.assertEqual(response.data[0]['id'], self.user2.id)
+
+class TotalMaskSoldViewTest(APITestCase):
+    def setUp(self):
+        # Create user and pharmacy
+        self.user = User.objects.create(name="Test User", cash_balance=Decimal("1000.00"))
+        self.pharmacy = Pharmacy.objects.create(name="Test Pharmacy", cash_balance=Decimal("2000.00"))
+
+        # Create a mask
+        self.mask = Mask.objects.create(pharmacy=self.pharmacy, name="Test Mask", price=Decimal("50.00"))
+
+        # today = timezone.now().date()
+        today_naive = datetime.today()
+        today = timezone.make_aware(today_naive)
+
+        # Transactions within range (3)
+        for i in range(3):
+            Transaction.objects.create(
+                user=self.user,
+                pharmacy=self.pharmacy,
+                mask=self.mask,
+                transaction_amount=Decimal("100.00"),
+                transaction_date=today - timedelta(days=i)
+            )
+
+        # Transactions outside range (2)
+        for i in range(2):
+            Transaction.objects.create(
+                user=self.user,
+                pharmacy=self.pharmacy,
+                mask=self.mask,
+                transaction_amount=Decimal("200.00"),
+                transaction_date=today - timedelta(days=40 + i)
+            )
+
+    def test_summary_within_date_range(self):
+        start_date = (timezone.now().date() - timedelta(days=5)).strftime('%Y-%m-%d')
+        end_date = timezone.now().date().strftime('%Y-%m-%d')
+        url = reverse('transactions-summary')
+
+        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_masks_sold'], 3)
+        self.assertEqual(Decimal(response.data['total_transaction_value']), Decimal("300.00"))
+
+    def test_missing_start_date(self):
+        url = reverse('transactions-summary')
+        response = self.client.get(url, {'end_date': '2025-01-01'})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('start_date', str(response.data))
+
+    def test_invalid_date_format(self):
+        url = reverse('transactions-summary')
+        response = self.client.get(url, {'start_date': '01-01-2025', 'end_date': '2025-01-01'})
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('start_date', str(response.data))
+
+    def test_empty_transactions(self):
+        Transaction.objects.all().delete()
+        start_date = (timezone.now().date() - timedelta(days=5)).strftime('%Y-%m-%d')
+        end_date = timezone.now().date().strftime('%Y-%m-%d')
+        url = reverse('transactions-summary')
+
+        response = self.client.get(url, {'start_date': start_date, 'end_date': end_date})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_masks_sold'], 0)
+        self.assertEqual(response.data['total_transaction_value'], 0)
+
+    def test_start_date_after_end_date(self):
+        url = reverse('transactions-summary')
+        response = self.client.get(url, {'start_date': '2025-01-10', 'end_date': '2025-01-01'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['total_masks_sold'], 0)
+        self.assertEqual(response.data['total_transaction_value'], 0)

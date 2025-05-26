@@ -1,6 +1,9 @@
 from rest_framework.generics import ListAPIView
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.utils.dateparse import parse_time
 from django.utils import timezone
+from .utils import parse_date_param
 from datetime import datetime
 from django.db.models import Count, Sum, Q
 from rest_framework.exceptions import ValidationError
@@ -12,26 +15,14 @@ class UserListView(ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
-# TODO: Task 4
-# Create a view to retrieve the top X users by total transaction amount
-# within a date range.
-# - URL: /api/users/top/?start_date=2024-01-01&end_date=2024-12-31&limit=10
 class TopUsersByTransactionAmountView(ListAPIView):
     serializer_class = UserSerializer
 
     def get_queryset(self):
         params = self.request.query_params
         
-        # Parse and validate date inputs
-        try:
-            start_date = timezone.make_aware(datetime.strptime(params.get('start_date'), '%Y-%m-%d'))
-        except (TypeError, ValueError):
-            raise ValidationError("start_date must be provided in YYYY-MM-DD format.")
-
-        try:
-            end_date = timezone.make_aware(datetime.strptime(params.get('end_date'), '%Y-%m-%d'))
-        except (TypeError, ValueError):
-            raise ValidationError("end_date must be provided in YYYY-MM-DD format.")
+        start_date = parse_date_param(params.get('start_date'), 'start_date')
+        end_date = parse_date_param(params.get('end_date'), 'end_date')
 
         try:
             limit = int(params.get('limit', 10))
@@ -161,22 +152,33 @@ class MaskListView(ListAPIView):
     queryset = Mask.objects.all()
     serializer_class = MaskSerializer
 
+
 # ---Transaction Views ---
 class TransactionListView(ListAPIView):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
+class TotalMaskSoldView(APIView): #within date
+    def get(self, request):
+        params = request.query_params
 
+        start_date = parse_date_param(params.get('start_date'), 'start_date')
+        end_date = parse_date_param(params.get('end_date'), 'end_date')
 
+        summary = (
+            Transaction.objects
+            .filter(transaction_date__range=(start_date, end_date))
+            .aggregate(
+                total_masks_sold=Count('id'),
+                total_transaction_value=Sum('transaction_amount')
+            )
+        )
 
+        # If no transactions found, defaults to None, replace with 0
+        summary['total_masks_sold'] = summary['total_masks_sold'] or 0
+        summary['total_transaction_value'] = summary['total_transaction_value'] or 0
 
-
-
-
-# TODO: Task 5
-# Create a view to calculate the total number of masks sold
-# and total transaction value within a date range.
-# - URL: /api/transactions/summary/?start_date=...&end_date=...
+        return Response(summary)
 
 # TODO: Task 6
 # Create a search API to find pharmacies or masks by name,
