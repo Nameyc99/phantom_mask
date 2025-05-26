@@ -334,10 +334,11 @@ class TotalMaskSoldViewTest(APITestCase):
 
 class SearchViewTests(APITestCase):
     def setUp(self):
-        self.pharmacy1 = Pharmacy.objects.create(name="Carepoint", cash_balance=1000)
-        self.pharmacy2 = Pharmacy.objects.create(name="DFW Wellness", cash_balance=2000)
+        self.pharmacy1 = Pharmacy.objects.create(name="Pharmacy1", cash_balance=1000)
+        self.pharmacy2 = Pharmacy.objects.create(name="Pharmacy2", cash_balance=2000)
         self.mask1 = Mask.objects.create(pharmacy=self.pharmacy1, name="Test Mask", price=Decimal("50.00"))
         self.mask2 = Mask.objects.create(pharmacy=self.pharmacy2, name="test mask2", price=Decimal("100.00"))
+        self.mask3 = Mask.objects.create(pharmacy=self.pharmacy2, name="Partial Mask", price=Decimal("100.00"))
         self.url = reverse('search')  # Make sure your URL name is 'search'
 
     def test_search_without_query_returns_error(self):
@@ -349,18 +350,18 @@ class SearchViewTests(APITestCase):
         response = self.client.get(self.url, {'query': 'mask', 'category': 'masks'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('masks', response.data)
-        self.assertEqual(len(response.data['masks']), 2)
+        self.assertEqual(len(response.data['masks']), 3)
         self.assertNotIn('pharmacies', response.data)
 
     def test_search_pharmacies_only(self):
-        response = self.client.get(self.url, {'query': 'carepoint', 'category': 'pharmacies'})
+        response = self.client.get(self.url, {'query': 'pharmacy', 'category': 'pharmacies'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('pharmacies', response.data)
-        self.assertEqual(len(response.data['pharmacies']), 1)
+        self.assertEqual(len(response.data['pharmacies']), 2)
         self.assertNotIn('masks', response.data)
 
     def test_search_all_categories(self):
-        response = self.client.get(self.url, {'query': 'carepoint'})
+        response = self.client.get(self.url, {'query': 'health'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('masks', response.data)
         self.assertIn('pharmacies', response.data)
@@ -370,3 +371,9 @@ class SearchViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['masks']), 1)
         self.assertEqual(response.data['masks'][0]['name'], 'test mask2')
+
+    def test_case_partial_match_search(self):
+        response = self.client.get(self.url, {'query': 'par'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['masks']), 1)
+        self.assertEqual(response.data['masks'][0]['name'], 'Partial Mask')

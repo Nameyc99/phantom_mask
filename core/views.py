@@ -1,11 +1,13 @@
 from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework import status
 from django.utils.dateparse import parse_time
 from django.utils import timezone
 from .utils import parse_date_param
 from datetime import datetime
 from django.db.models import Count, Sum, Q
+from django.db import transaction as db_transaction
 from rest_framework.exceptions import ValidationError
 from .models import User, Pharmacy, PharmacyOpeningHour, Mask, Transaction
 from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHourSerializer, MaskSerializer, TransactionSerializer
@@ -207,10 +209,71 @@ class SearchView(APIView):
 
         return Response(results)
 
-# TODO: Task 7
-# Create a view to handle the process of a user purchasing masks,
-# possibly from different pharmacies.
-# - URL: /api/purchase/
-# - Method: POST
-# - Body: { user_id, purchases: [{pharmacy_id, mask_id, quantity}, ...] }
-# - Update balances, create Transaction, reduce stock (if modeled)
+class PurchaseView(APIView):
+    def post(self, request):
+        data = request.data
+        user_id = data.get('user_id')
+        purchases = data.get('purchases')
+
+        if not user_id or not purchases:
+            raise ValidationError("'user_id' and 'purchases' fields are required.")
+
+        try:
+            user = User.objects.select_for_update().get(id=user_id)
+        except User.DoesNotExist:
+            raise ValidationError("User not found.")
+
+        created_transactions = []
+        total_cost = 0
+
+        # Start atomic transaction
+        with db_transaction.atomic():
+            for item in purchases:
+                pharmacy_id = item.get('pharmacy_id')
+                mask_id = item.get('mask_id')
+                quantity = item.get('quantity')
+
+                if not all([pharmacy_id, mask_id, quantity]):
+                    raise ValidationError("Each purchase must include 'pharmacy_id', 'mask_id', and 'quantity'.")
+
+                try:
+                    mask = Mask.objects.get(id=mask_id, pharmacy_id=pharmacy_id)
+                except Mask.DoesNotExist:
+                    raise ValidationError(f"Mask {mask_id} not found in pharmacy {pharmacy_id}.")
+
+                total_price = mask.price * quantity
+                total_cost += total_price
+
+            if user.cash_balance < total_cost:
+                raise ValidationError(f"Insufficient funds. Required: {total_cost}, Available: {user.cash_balance}")
+
+            # Perform transactions
+            for item in purchases:
+                pharmacy_id = item.get('pharmacy_id')
+                mask_id = item.get('mask_id')
+                quantity = item.get('quantity')
+
+                mask = Mask.objects.get(id=mask_id, pharmacy_id=pharmacy_id)
+                pharmacy = mask.pharmacy
+                total_price = mask.price * quantity
+
+                # Transfer funds
+                user.cash_balance -= total_price
+                pharmacy.cash_balance += total_price
+                user.save()
+                pharmacy.save()
+
+                # Create transaction entry
+                transaction = Transaction.objects.create(
+                    user=user,
+                    pharmacy=pharmacy,
+                    mask=mask,
+                    transaction_date=timezone.now(),
+                    transaction_amount=total_price
+                )
+                created_transactions.append(transaction)
+
+        return Response(
+            TransactionSerializer(created_transactions, many=True).data,
+            status=status.HTTP_201_CREATED
+        )

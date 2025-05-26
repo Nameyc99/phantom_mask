@@ -4,17 +4,10 @@ import re
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-
-# Import your models here
 from core.models import Pharmacy, Mask, User, Transaction, PharmacyOpeningHour
-Transaction.objects.all().delete()
-Mask.objects.all().delete()
-PharmacyOpeningHour.objects.all().delete()
-Pharmacy.objects.all().delete()
-User.objects.all().delete()
 
 class Command(BaseCommand):
-    help = 'ETL template command - fill in your logic'
+    help = 'ETL json data'
 
     def handle(self, *args, **options):
         # Define your data directory

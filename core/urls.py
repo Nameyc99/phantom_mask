@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (UserListView, TopUsersByTransactionAmountView, PharmacyListView, PharmacyOpenAtTimeView, 
-                    PharmacyMaskListView, PharmaciesMaskCountFilterView, PharmacyOpeningHourListView, MaskListView, TransactionListView, TotalMaskSoldView, SearchView)
+                    PharmacyMaskListView, PharmaciesMaskCountFilterView, PharmacyOpeningHourListView, MaskListView, 
+                    TransactionListView, TotalMaskSoldView, SearchView, PurchaseView)
 
 urlpatterns = [
     path('users/', UserListView.as_view(), name='user-list'),
@@ -13,5 +14,6 @@ urlpatterns = [
     path('masks/', MaskListView.as_view(), name='mask-list'),
     path('transactions/', TransactionListView.as_view(), name='transaction-list'),
     path('transactions/summary/', TotalMaskSoldView.as_view(), name='transactions-summary'),
-    path('search/', SearchView.as_view(), name='search')
+    path('search/', SearchView.as_view(), name='search'),
+    path('api/purchase/', PurchaseView.as_view(), name='purchase'),
 ]
