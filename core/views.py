@@ -152,7 +152,6 @@ class MaskListView(ListAPIView):
     queryset = Mask.objects.all()
     serializer_class = MaskSerializer
 
-
 # ---Transaction Views ---
 class TransactionListView(ListAPIView):
     queryset = Transaction.objects.all()
@@ -180,10 +179,33 @@ class TotalMaskSoldView(APIView): #within date
 
         return Response(summary)
 
-# TODO: Task 6
-# Create a search API to find pharmacies or masks by name,
-# and rank by relevance (e.g. name contains, startswith, etc.)
-# - URL: /api/search/?query=maskname
+class SearchView(APIView):
+    def get(self, request):
+        query = request.query_params.get('query', '').strip()
+        category = request.query_params.get('category')  # Optional: "masks" or "pharmacies"
+
+        if not query:
+            raise ValidationError("Query parameter is required.")
+
+        results = {}
+
+        if not category or category == 'masks':
+            masks = Mask.objects.filter(
+                Q(name__icontains=query) | Q(name__istartswith=query)
+            ).annotate(
+                relevance=Count('id')  # Optional: sort logic placeholder
+            ).order_by('-relevance')
+            results['masks'] = MaskSerializer(masks, many=True).data
+
+        if not category or category == 'pharmacies':
+            pharmacies = Pharmacy.objects.filter(
+                Q(name__icontains=query) | Q(name__istartswith=query)
+            ).annotate(
+                relevance=Count('id')  # Optional: sort logic placeholder
+            ).order_by('-relevance')
+            results['pharmacies'] = PharmacySerializer(pharmacies, many=True).data
+
+        return Response(results)
 
 # TODO: Task 7
 # Create a view to handle the process of a user purchasing masks,

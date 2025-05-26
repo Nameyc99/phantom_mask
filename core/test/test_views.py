@@ -330,3 +330,43 @@ class TotalMaskSoldViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['total_masks_sold'], 0)
         self.assertEqual(response.data['total_transaction_value'], 0)
+
+
+class SearchViewTests(APITestCase):
+    def setUp(self):
+        self.pharmacy1 = Pharmacy.objects.create(name="Carepoint", cash_balance=1000)
+        self.pharmacy2 = Pharmacy.objects.create(name="DFW Wellness", cash_balance=2000)
+        self.mask1 = Mask.objects.create(pharmacy=self.pharmacy1, name="Test Mask", price=Decimal("50.00"))
+        self.mask2 = Mask.objects.create(pharmacy=self.pharmacy2, name="test mask2", price=Decimal("100.00"))
+        self.url = reverse('search')  # Make sure your URL name is 'search'
+
+    def test_search_without_query_returns_error(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Query parameter is required.", str(response.data))
+
+    def test_search_masks_only(self):
+        response = self.client.get(self.url, {'query': 'mask', 'category': 'masks'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('masks', response.data)
+        self.assertEqual(len(response.data['masks']), 2)
+        self.assertNotIn('pharmacies', response.data)
+
+    def test_search_pharmacies_only(self):
+        response = self.client.get(self.url, {'query': 'carepoint', 'category': 'pharmacies'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('pharmacies', response.data)
+        self.assertEqual(len(response.data['pharmacies']), 1)
+        self.assertNotIn('masks', response.data)
+
+    def test_search_all_categories(self):
+        response = self.client.get(self.url, {'query': 'carepoint'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('masks', response.data)
+        self.assertIn('pharmacies', response.data)
+
+    def test_case_insensitive_search(self):
+        response = self.client.get(self.url, {'query': 'TEST MASK2'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['masks']), 1)
+        self.assertEqual(response.data['masks'][0]['name'], 'test mask2')
