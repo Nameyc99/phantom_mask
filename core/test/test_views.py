@@ -189,6 +189,17 @@ class TopUsersByTransactionAmountViewTests(APITestCase):
             transaction_amount=100, transaction_date=timezone.make_aware(today_naive - timedelta(days=40))  # Outside range
         )
 
+    def test_top_users_by_transaction_amount_value_error(self):
+        url = reverse('top-users-by-transaction')
+        response = self.client.get(url, {
+            'start_date': self.start_date.strftime('%Y-%m-%d'),
+            'end_date': self.end_date.strftime('%Y-%m-%d'),
+            'limit': 'invalid'
+        })
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('limit', str(response.data).lower())
+
+
     def test_top_users_by_transaction_amount_within_range(self):
         url = reverse('top-users-by-transaction')
         response = self.client.get(url, {
@@ -377,3 +388,75 @@ class SearchViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['masks']), 1)
         self.assertEqual(response.data['masks'][0]['name'], 'Partial Mask')
+
+class PurchaseViewTests(APITestCase):
+
+    def setUp(self):
+        self.user = User.objects.create(name='Test User', cash_balance=1000)
+        self.pharmacy = Pharmacy.objects.create(name='Test Pharmacy', cash_balance=500)
+        self.mask = Mask.objects.create(name='N95', price=100, pharmacy=self.pharmacy)
+        self.purchase_url = reverse('purchase')  # replace with actual url name if you used a router or path
+
+    def test_successful_purchase(self):
+        data = {
+            'user_id': self.user.id,
+            'purchases': [{
+                'pharmacy_id': self.pharmacy.id,
+                'mask_id': self.mask.id,
+                'quantity': 2
+            }]
+        }
+        response = self.client.post(self.purchase_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Transaction.objects.count(), 1)
+        self.user.refresh_from_db()
+        self.pharmacy.refresh_from_db()
+        self.assertEqual(self.user.cash_balance, 800)
+        self.assertEqual(self.pharmacy.cash_balance, 700)
+
+    def test_missing_required_fields(self):
+        response = self.client.post(self.purchase_url, {}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('user_id', str(response.data))
+
+    def test_nonexistent_user(self):
+        data = {
+            'user_id': 999,
+            'purchases': [{
+                'pharmacy_id': self.pharmacy.id,
+                'mask_id': self.mask.id,
+                'quantity': 1
+            }]
+        }
+        response = self.client.post(self.purchase_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('User not found', str(response.data))
+
+    def test_mask_not_found(self):
+        data = {
+            'user_id': self.user.id,
+            'purchases': [{
+                'pharmacy_id': self.pharmacy.id,
+                'mask_id': 999,
+                'quantity': 1
+            }]
+        }
+        response = self.client.post(self.purchase_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('not found', str(response.data).lower())
+
+    def test_insufficient_funds(self):
+        self.user.cash_balance = 50
+        self.user.save()
+
+        data = {
+            'user_id': self.user.id,
+            'purchases': [{
+                'pharmacy_id': self.pharmacy.id,
+                'mask_id': self.mask.id,
+                'quantity': 1
+            }]
+        }
+        response = self.client.post(self.purchase_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('insufficient funds', str(response.data).lower())
