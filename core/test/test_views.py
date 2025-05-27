@@ -445,6 +445,19 @@ class PurchaseViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('not found', str(response.data).lower())
 
+    def test_purchase_missing_field(self):
+        data = {
+            'user_id': self.user.id,
+            'purchases': [{
+                'pharmacy_id': None, # Missing
+                'mask_id': 999,
+                'quantity': 1
+            }]
+        }
+        response = self.client.post(self.purchase_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('each purchase must include', str(response.data).lower())
+
     def test_insufficient_funds(self):
         self.user.cash_balance = 50
         self.user.save()
