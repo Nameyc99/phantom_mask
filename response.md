@@ -1,59 +1,59 @@
 # Response
-> The Current content is an **example template**; please edit it to fit your style and content.
+This project is a pharmacy transaction backend system designed to manage and analyze mask purchases across multiple pharmacies.
+The system is built using **Django**, **Django REST Framework (DRF)** with **MySQL** as database.
+
 ## A. Required Information
 ### A.1. Requirement Completion Rate
 - [x] List all pharmacies open at a specific time and on a day of the week if requested.
-  - Implemented at xxx API.
+  - Implemented at **PharmacyOpenAtTimeView** API.
 - [x] List all masks sold by a given pharmacy, sorted by mask name or price.
-  - Implemented at xxx API.
+  - Implemented at **PharmacyMaskListView** API.
 - [x] List all pharmacies with more or less than x mask products within a price range.
-  - Implemented at xxx API.
+  - Implemented at **PharmaciesMaskCountFilterView** API.
 - [x] The top x users by total transaction amount of masks within a date range.
-  - Implemented at xxx API.
+  - Implemented at **TopUsersByTransactionAmountView** API.
 - [x] The total number of masks and dollar value of transactions within a date range.
-  - Implemented at xxx API.
+  - Implemented at **TotalMaskSoldView** API.
 - [x] Search for pharmacies or masks by name, ranked by relevance to the search term.
-  - Implemented at xxx API.
+  - Implemented at **SearchView** API.
 - [x] Process a user purchases a mask from a pharmacy, and handle all relevant data changes in an atomic transaction.
-  - Implemented at xxx API.
+  - Implemented at **PurchaseView** API.
 ### A.2. API Document
-> Please describe how to use the API in the API documentation. You can edit by any format (e.g., Markdown or OpenAPI) or free tools (e.g., [hackMD](https://hackmd.io/), [postman](https://www.postman.com/), [google docs](https://docs.google.com/document/u/0/), or  [swagger](https://swagger.io/specification/)).
-
-Import [this](#api-document) json file to Postman.
+Access the full API reference by clicking [API Documentation](http://localhost:8000/api/docs/).
 
 ### A.3. Import Data Commands
-Please run these two script commands to migrate the data into the database.
+Please run below at the root of the project to migrate data to database.
 
 ```bash
-$ rake import_data:pharmacies[PATH_TO_FILE]
-$ rake import_data:users[PATH_TO_FILE]
+python manage.py load_initial_data
 ```
 ## B. Bonus Information
 
->  If you completed the bonus requirements, please fill in your task below.
 ### B.1. Test Coverage Report
 
-I wrote down the 20 unit tests for the APIs I built. Please check the test coverage report at [here](#test-coverage-report).
+I wrote down the 40 unit tests for the APIs I built. Please check the test coverage report at [here](./htmlcov/index.html).
 
 You can run the test script by using the command below:
 
 ```bash
-bundle exec rspec spec
+python manage.py test core.test.test_views
 ```
 
 ### B.2. Dockerized
-Please check my Dockerfile / docker-compose.yml at [here](#dockerized).
 
-On the local machine, please follow the commands below to build it.
+Docker configurations (Dockerfile and docker-compose.yml) are included.
+
+To build and run the project with Docker locally, use:
 
 ```bash
-$ docker build --build-arg ENV=development -p 80:3000 -t my-project:1.0.0 .  
-$ docker-compose up -d
+docker build --build-arg ENV=development -t phantom-masks:1.0.0 .
+docker-compose up -d
+```
 
-# go inside the container, run the migrate data command.
-$ docker exec -it my-project bash
-$ rake import_data:pharmacies[PATH_TO_FILE] 
-$ rake import_data:user[PATH_TO_FILE]
+To run database migrations and import data inside the container:
+
+```bash
+python manage.py load_initial_data
 ```
 
 ### B.3. Demo Site Url
@@ -64,10 +64,47 @@ The demo site is ready on [my AWS demo site](#demo-site-url); you can try any AP
 
 ### C.1. ERD
 
-My ERD [erd-link](#erd-link).
+My ERD [erd-link](./ERD.pdf).
 
-### C.2. Technical Document
+### C.2. Local Setup Instruction
 
-For frontend programmer reading, please check this [technical document](technical-document) to know how to operate those APIs.
+For setting up project locally, please refer to this [link](./setup.md)
 
 - --
+
+Directory Structure
+```
+phantom_mask
+├── core
+│   ├── __init__.py
+│   ├── admin.py
+│   ├── apps.py
+│   ├── management
+│   │   ├── __init__.py
+│   │   └── commands
+│   │       ├── __init__.py
+│   │       └── load_initial_data.py
+│   ├── migrations
+│   │   └── __init__.py
+│   ├── models.py
+│   ├── serializers.py
+│   ├── test
+│   │   └── test_views.py
+│   ├── urls.py
+│   ├── utils.py
+│   └── views.py
+├── data
+│   ├── pharmacies.json
+│   └── users.json
+├── htmlcov
+│   └── index.html
+├── manage.py
+├── phantom_mask
+│   ├── __init__.py
+│   ├── asgi.py
+│   ├── settings.py
+│   ├── urls.py
+│   └── wsgi.py
+├── README.md
+└── response.md
+```
