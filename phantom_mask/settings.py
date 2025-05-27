@@ -30,7 +30,7 @@ SECRET_KEY = 'django-insecure-v&#-wd=x5vh2atd3ru3zz@oc27$bo_t3w8zntkmxvs$q0qgf(3
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ['https://phantom-mask-1iv2.onrender.com']
+ALLOWED_HOSTS = ['phantom-mask-1iv2.onrender.com']
 
 
 # Application definition
