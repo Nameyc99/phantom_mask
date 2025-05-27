@@ -25,3 +25,12 @@ class TransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Transaction
         fields = '__all__'
+
+class PurchaseItemSerializer(serializers.Serializer):
+    pharmacy_id = serializers.IntegerField()
+    mask_id = serializers.IntegerField()
+    quantity = serializers.IntegerField()
+
+class PurchaseRequestSerializer(serializers.Serializer):
+    user_id = serializers.IntegerField()
+    purchases = PurchaseItemSerializer(many=True)

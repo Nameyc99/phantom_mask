@@ -10,13 +10,41 @@ from django.db.models import Count, Sum, Q
 from django.db import transaction as db_transaction
 from rest_framework.exceptions import ValidationError
 from .models import User, Pharmacy, PharmacyOpeningHour, Mask, Transaction
-from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHourSerializer, MaskSerializer, TransactionSerializer
+from .serializers import UserSerializer, PharmacySerializer, PharmacyOpeningHourSerializer, MaskSerializer, TransactionSerializer, PurchaseRequestSerializer
+
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 # --- User Views ---
 class UserListView(ListAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter(
+            name='start_date',
+            type=OpenApiTypes.DATE,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description='Start date for the transaction filter (YYYY-MM-DD)'
+        ),
+        OpenApiParameter(
+            name='end_date',
+            type=OpenApiTypes.DATE,
+            location=OpenApiParameter.QUERY,
+            required=True,
+            description='End date for the transaction filter (YYYY-MM-DD)'
+        ),
+        OpenApiParameter(
+            name='limit',
+            type=OpenApiTypes.INT,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description='Number of top users to return (default: 10)'
+        )
+    ],
+    responses=UserSerializer(many=True)
+)
 class TopUsersByTransactionAmountView(ListAPIView):
     serializer_class = UserSerializer
 
@@ -53,6 +81,26 @@ class PharmacyListView(ListAPIView):
 class PharmacyOpeningHourListView(ListAPIView):
     queryset = PharmacyOpeningHour.objects.all()
     serializer_class = PharmacyOpeningHourSerializer
+
+@extend_schema(
+    parameters=[
+        OpenApiParameter(
+            name='day',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Day of the week (e.g., Monday, Tuesday)"
+        ),
+        OpenApiParameter(
+            name='time',
+            type=OpenApiTypes.TIME,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Time in HH:MM format to check if the pharmacy is open"
+        )
+    ],
+    responses=PharmacySerializer(many=True)
+)
 class PharmacyOpenAtTimeView(ListAPIView):
     serializer_class = PharmacySerializer
 
@@ -76,6 +124,18 @@ class PharmacyOpenAtTimeView(ListAPIView):
         return Pharmacy.objects.all()
 
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter(
+            name='sort_by',
+            type=OpenApiTypes.STR,
+            location=OpenApiParameter.QUERY,
+            required=False,
+            description="Sort by ['name', '-name', 'price', '-price']"
+        )
+    ],
+    responses=MaskSerializer(many=True)
+)
 class PharmacyMaskListView(ListAPIView):
     serializer_class = MaskSerializer
 
@@ -94,6 +154,15 @@ class PharmacyMaskListView(ListAPIView):
         return queryset
 
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter(name='min_price', type=OpenApiTypes.FLOAT, location=OpenApiParameter.QUERY, required=False, description='Minimum mask price'),
+        OpenApiParameter(name='max_price', type=OpenApiTypes.FLOAT, location=OpenApiParameter.QUERY, required=False, description='Maximum mask price'),
+        OpenApiParameter(name='count', type=OpenApiTypes.INT, location=OpenApiParameter.QUERY, required=False, description='Threshold mask count'),
+        OpenApiParameter(name='compare', type=OpenApiTypes.STR, location=OpenApiParameter.QUERY, required=False, description='Comparison operator: gt, lt, gte, lte'),
+    ],
+    responses=PharmacySerializer(many=True)
+)
 class PharmaciesMaskCountFilterView(ListAPIView):
     serializer_class = PharmacySerializer
 
@@ -159,6 +228,13 @@ class TransactionListView(ListAPIView):
     queryset = Transaction.objects.all()
     serializer_class = TransactionSerializer
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter(name='start_date', type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=True, description='Start date in YYYY-MM-DD'),
+        OpenApiParameter(name='end_date', type=OpenApiTypes.DATE, location=OpenApiParameter.QUERY, required=True, description='End date in YYYY-MM-DD'),
+    ],
+    responses={200: OpenApiTypes.OBJECT}
+)
 class TotalMaskSoldView(APIView): #within date
     def get(self, request):
         params = request.query_params
@@ -181,6 +257,13 @@ class TotalMaskSoldView(APIView): #within date
 
         return Response(summary)
 
+@extend_schema(
+    parameters=[
+        OpenApiParameter('query', OpenApiTypes.STR, OpenApiParameter.QUERY, required=True, description="Search query string"),
+        OpenApiParameter('category', OpenApiTypes.STR, OpenApiParameter.QUERY, required=False, description="Filter by category: 'masks' or 'pharmacies'"),
+    ],
+    responses=OpenApiTypes.OBJECT
+)
 class SearchView(APIView):
     def get(self, request):
         query = request.query_params.get('query', '').strip()
@@ -209,6 +292,11 @@ class SearchView(APIView):
 
         return Response(results)
 
+@extend_schema(
+    request=PurchaseRequestSerializer,
+    responses={201: TransactionSerializer(many=True)},
+    description="Create multiple purchase transactions for a user in one atomic operation."
+)
 class PurchaseView(APIView):
     def post(self, request):
         data = request.data
