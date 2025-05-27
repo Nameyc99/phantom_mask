@@ -19,25 +19,27 @@ The system is built using **Django**, **Django REST Framework (DRF)** with **MyS
 - [x] Process a user purchases a mask from a pharmacy, and handle all relevant data changes in an atomic transaction.
   - Implemented at **PurchaseView** API.
 ### A.2. API Document
-Access the full API reference by clicking [API Documentation](http://localhost:8000/api/docs/).
+Access the full API reference via [Swagger UI](http://localhost:8000/api/docs/).
 
 ### A.3. Import Data Commands
 Please run below at the root of the project to migrate data to database.
 
 ```bash
+python manage.py migrate
 python manage.py load_initial_data
 ```
 ## B. Bonus Information
 
 ### B.1. Test Coverage Report
 
-I wrote down the 40 unit tests for the APIs I built. Please check the test coverage report at [here](./htmlcov/index.html).
+I wrote down the 40 unit tests for the APIs I built. Please check the test coverage report at [here](https://cheerful-vacherin-b50dd6.netlify.app/).
 
 You can run the test script by using the command below:
 
 ```bash
 python manage.py test core.test.test_views
 ```
+
 
 ### B.2. Dockerized
 
@@ -46,19 +48,22 @@ Docker configurations (Dockerfile and docker-compose.yml) are included.
 To build and run the project with Docker locally, use:
 
 ```bash
-docker build --build-arg ENV=development -t phantom-masks:1.0.0 .
+docker-compose build
 docker-compose up -d
 ```
 
 To run database migrations and import data inside the container:
 
-```bash
+```bash=
+docker-compose exec web bash
+
+python manage.py migrate
 python manage.py load_initial_data
 ```
 
 ### B.3. Demo Site Url
 
-The demo site is ready on [my AWS demo site](#demo-site-url); you can try any APIs on this demo site.
+
 
 ## C. Other Information
 
@@ -70,14 +75,16 @@ My ERD [erd-link](./ERD.pdf).
 
 For setting up project locally, please refer to this [link](./setup.md)
 
-- --
+### C.3. Technical Document
+For frontend programmer reading, please check this [technical document](./API.md) to know how to operate those APIs.
 
-Directory Structure
+### C.4. Directory Structure
 ```
 phantom_mask
 ├── core
 │   ├── __init__.py
 │   ├── admin.py
+│   ├── API.md
 │   ├── apps.py
 │   ├── management
 │   │   ├── __init__.py
@@ -96,6 +103,9 @@ phantom_mask
 ├── data
 │   ├── pharmacies.json
 │   └── users.json
+├── docker-compose.yml
+├── Dockerfile
+├── ERD.pdf
 ├── htmlcov
 │   └── index.html
 ├── manage.py
@@ -106,5 +116,6 @@ phantom_mask
 │   ├── urls.py
 │   └── wsgi.py
 ├── README.md
-└── response.md
-```
+├── requirements.txt
+├── response.md
+└── setup.md
