@@ -15,5 +15,5 @@ urlpatterns = [
     path('transactions/', TransactionListView.as_view(), name='transaction-list'),
     path('transactions/summary/', TotalMaskSoldView.as_view(), name='transactions-summary'),
     path('search/', SearchView.as_view(), name='search'),
-    path('api/purchase/', PurchaseView.as_view(), name='purchase'),
+    path('purchase/', PurchaseView.as_view(), name='purchase'),
 ]
