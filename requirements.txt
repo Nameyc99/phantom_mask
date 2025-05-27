@@ -1,0 +1,17 @@
+asgiref @ file:///home/conda/feedstock_root/build_artifacts/asgiref_1733215607532/work
+attrs==25.3.0
+coverage==7.8.2
+Django @ file:///home/conda/feedstock_root/build_artifacts/django_1746652540633/work
+djangorestframework @ file:///home/conda/feedstock_root/build_artifacts/djangorestframework_1746215177513/work
+drf-spectacular==0.28.0
+inflection==0.5.1
+jsonschema==4.24.0
+jsonschema-specifications==2025.4.1
+mysqlclient @ file:///Users/runner/miniforge3/conda-bld/bld/rattler-build_mysqlclient_1746793405/work
+python-dotenv @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_python-dotenv_1742948348/work
+PyYAML==6.0.2
+referencing==0.36.2
+rpds-py==0.25.1
+sqlparse @ file:///home/conda/feedstock_root/build_artifacts/sqlparse_1734007102193/work
+typing_extensions @ file:///home/conda/feedstock_root/build_artifacts/bld/rattler-build_typing_extensions_1744302253/work
+uritemplate==4.1.1
