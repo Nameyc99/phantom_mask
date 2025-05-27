@@ -117,3 +117,4 @@ __pycache__/
 # Ignore coverage reports
 .coverage
 
+.env
