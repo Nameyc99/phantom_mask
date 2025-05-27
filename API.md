@@ -7,10 +7,11 @@ This technical document is for frontend developers integrating with the Phantom 
 ## 🔐 Base URL
 
 For local development: http://localhost:8000/api/
+For testing public api: https://phantom-mask-1iv2.onrender.com/api/
 
 
 You can test APIs using curl, Postman, or Swagger UI at:
-http://localhost:8000/api/docs/
+http://localhost:8000/api/docs/ or https://phantom-mask-1iv2.onrender.com/api/docs/
 
 ---
 

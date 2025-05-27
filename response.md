@@ -45,6 +45,16 @@ python manage.py test core.test.test_views
 
 Docker configurations (Dockerfile and docker-compose.yml) are included.
 
+Create .env file as below
+```bash
+.env
+MYSQL_DB=your_db_name
+MYSQL_USER=your_username
+MYSQL_PASSWORD=your_password
+MYSQL_HOST=db #db for docker |localhost for local build
+MYSQL_PORT=3306
+```
+
 To build and run the project with Docker locally, use:
 
 ```bash
@@ -63,6 +73,8 @@ python manage.py load_initial_data
 
 ### B.3. Demo Site Url
 
+You can explore the API documentation via the public Swagger UI:
+👉 https://phantom-mask-1iv2.onrender.com/api/docs/
 
 
 ## C. Other Information
